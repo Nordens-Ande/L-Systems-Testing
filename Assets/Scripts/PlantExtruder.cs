@@ -41,18 +41,29 @@ public class PlantExtruder : MonoBehaviour
 
     //    return Mathf.Lerp(rootThickness, minThickness, normalizedHeight);
     //}
-    float GetBranchRadius(Branch branch, float t)
+    //float GetBranchRadius(Branch branch, float t)
+    //{
+    //    float curveValue = radiusCurve.Evaluate(t);
+
+    //    return Mathf.Lerp(branch.endRadius, branch.startRadius, curveValue);
+    //}
+
+    //float GetPlantRadius(float distanceFromRoot, float totalLength)
+    //{
+    //    float normalizedLength = Mathf.Clamp01(distanceFromRoot / totalLength);
+
+    //    float curveValue = Mathf.Clamp01(radiusCurve.Evaluate(normalizedLength));
+
+    //    return Mathf.Lerp(tipRadius, baseRadius, curveValue);
+    //}
+    float GetRadius(float remainingDistance, float totalLength)
     {
-        float curveValue = radiusCurve.Evaluate(t);
+        float normalizedRemaining = Mathf.Clamp01(remainingDistance / totalLength);
 
-        return Mathf.Lerp(branch.endRadius, branch.startRadius, curveValue);
-    }
+        // Convert remaining distance into a root-to-tip coordinate.
+        float normalizedPosition = 1f - normalizedRemaining;
 
-    float GetPlantRadius(float distanceFromRoot, float totalLength)
-    {
-        float normalizedLength = Mathf.Clamp01(distanceFromRoot / totalLength);
-
-        float curveValue = Mathf.Clamp01(radiusCurve.Evaluate(normalizedLength));
+        float curveValue = Mathf.Clamp01(radiusCurve.Evaluate(normalizedPosition));
 
         return Mathf.Lerp(tipRadius, baseRadius, curveValue);
     }
@@ -61,12 +72,7 @@ public class PlantExtruder : MonoBehaviour
     // Postorder traversal
     float CalculateMaxTipDistance(Branch branch)
     {
-        // If a child is connected the end of the branch, we should treat the endpoint as a junction instead of a terminal/leaf tip (i.e tipRadius)
-        bool hasChildAtEnd = HasChildAtEnd(branch);
-
-        // Only count the branch's own endpoint if it is a tip/leaf
-        float maxDistance = hasChildAtEnd ? 0f : branch.length;
-        //float maxDistance = branch.length;
+        float maxDistance = branch.length;
 
         foreach (Branch child in branch.childBranches)
         {
@@ -82,74 +88,79 @@ public class PlantExtruder : MonoBehaviour
 
         return branch.maxTipDistance;
     }
-    void AssignBranchRadii(Branch branch, float totalLength)
+    float GetRemainingDistanceToTip(Branch branch, float distanceAlongBranch)
     {
-        float branchEndDistance = branch.distanceFromRoot + branch.length;
-
-        // Determine whether this branch ends at a junction or a tip/leaf
-        bool hasChildAtEnd = HasChildAtEnd(branch);
-
-        if (hasChildAtEnd)
-        {
-            // Get the real endpoint radius by using its global distance from the root
-            float plantRadius = GetPlantRadius(branchEndDistance, totalLength);
-
-            // We need to assign this so that junctions at endpoints don't use the tipRadius as it did in previous solutions
-            branch.endRadius = Mathf.Min(branch.startRadius, plantRadius);
-        }
-        else
-        {
-            // This endpoint is an actual terminal tip/lead, i.e it should ineherent the tipRadius
-            branch.endRadius = tipRadius;
-        }
+        // Distance remaining to the end of this branch
+        float maxRemainingDistance = Mathf.Max(0f, branch.length - distanceAlongBranch);
 
         foreach (Branch child in branch.childBranches)
         {
-            // Distance from the beginning of the parent to the child attachment point
             float childOffset = child.distanceFromRoot - branch.distanceFromRoot;
 
-            // Normalize the attachment position
-            float t = branch.length > Mathf.Epsilon ? Mathf.Clamp01(childOffset / branch.length) : 0f;
+            // Ignore children that attach behind our current position.
+            if (childOffset < distanceAlongBranch)
+                continue;
 
-            // Inherents the parents exact radius at the attatchment point of the child
-            child.startRadius = GetBranchRadius(branch, t);
+            // Distance from our current position to the child, plus the child's longest remaining path.
+            float remainingDistance = childOffset - distanceAlongBranch + child.maxTipDistance;
 
-            // Continue recursively through the tree
-            AssignBranchRadii(child, totalLength);
-        }
-    }
-    bool HasChildAtEnd(Branch branch)
-    {
-        float branchEndDistance = branch.distanceFromRoot + branch.length;
-
-        float tolerance = 0.0001f * Mathf.Max(1f, Mathf.Abs(branchEndDistance));
-
-        foreach (Branch child in branch.childBranches)
-        {
-            if (Mathf.Abs(child.distanceFromRoot - branchEndDistance) <= tolerance)
-                return true;
+            maxRemainingDistance = Mathf.Max(maxRemainingDistance, remainingDistance);
         }
 
-        return false;
+        return maxRemainingDistance;
     }
-    //float CalculateMaxTipDistance(Branch branch)
+
+    //void AssignBranchRadii(Branch branch, float totalLength)
     //{
-    //    if (branch.childBranches.Count == 0)
-    //        return branch.length;
+    //    float branchEndDistance = branch.distanceFromRoot + branch.length;
 
-    //    float max = 0f;
+    //    // Determine whether this branch ends at a junction or a tip/leaf
+    //    bool hasChildAtEnd = HasChildAtEnd(branch);
+
+    //    if (hasChildAtEnd)
+    //    {
+    //        // Get the real endpoint radius by using its global distance from the root
+    //        float plantRadius = GetPlantRadius(branchEndDistance, totalLength);
+
+    //        // We need to assign this so that junctions at endpoints don't use the tipRadius as it did in previous solutions
+    //        branch.endRadius = Mathf.Min(branch.startRadius, plantRadius);
+    //    }
+    //    else
+    //    {
+    //        // This endpoint is an actual terminal tip/lead, i.e it should ineherent the tipRadius
+    //        branch.endRadius = tipRadius;
+    //    }
 
     //    foreach (Branch child in branch.childBranches)
     //    {
-    //        float distance = CalculateMaxTipDistance(child);
+    //        // Distance from the beginning of the parent to the child attachment point
+    //        float childOffset = child.distanceFromRoot - branch.distanceFromRoot;
 
-    //        max = Mathf.Max(max, distance);
+    //        // Normalize the attachment position
+    //        float t = branch.length > Mathf.Epsilon ? Mathf.Clamp01(childOffset / branch.length) : 0f;
+
+    //        // Inherents the parents exact radius at the attatchment point of the child
+    //        child.startRadius = GetBranchRadius(branch, t);
+
+    //        // Continue recursively through the tree
+    //        AssignBranchRadii(child, totalLength);
+    //    }
+    //}
+    //bool HasChildAtEnd(Branch branch)
+    //{
+    //    float branchEndDistance = branch.distanceFromRoot + branch.length;
+
+    //    float tolerance = 0.0001f * Mathf.Max(1f, Mathf.Abs(branchEndDistance));
+
+    //    foreach (Branch child in branch.childBranches)
+    //    {
+    //        if (Mathf.Abs(child.distanceFromRoot - branchEndDistance) <= tolerance)
+    //            return true;
     //    }
 
-    //    branch.maxTipDistance = branch.length + max;
-
-    //    return branch.maxTipDistance;
+    //    return false;
     //}
+
 
     public void GenerateMesh()
     {
@@ -170,8 +181,8 @@ public class PlantExtruder : MonoBehaviour
         float totalLength = CalculateMaxTipDistance(root);
 
         // Initialize root and then propagate through the branch tree
-        root.startRadius = baseRadius;
-        AssignBranchRadii(root, totalLength);
+        //root.startRadius = baseRadius;
+        //AssignBranchRadii(root, totalLength);
 
         foreach (Branch branch in branches)
         {
@@ -206,8 +217,13 @@ public class PlantExtruder : MonoBehaviour
 
                 //float normalizedHeight = (branch.distanceFromRoot + t * branch.length) / totalLength;
                 //float radius = Mathf.Lerp(baseRadius, tipRadius, normalizedHeight);
-                
-                float radius = GetBranchRadius(branch, t);
+
+                //float radius = GetBranchRadius(branch, t);
+                float distanceAlongBranch = t * branch.length;
+
+                float remainingDistance = GetRemainingDistanceToTip(branch, distanceAlongBranch);
+
+                float radius = GetRadius(remainingDistance, totalLength);
 
                 // Calculate perpendicular vectors
                 Vector3 reference = Vector3.up;
