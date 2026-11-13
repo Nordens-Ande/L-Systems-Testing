@@ -6,6 +6,7 @@ using UnityEngine.Splines;
 public class PlantExtruder : MonoBehaviour
 {
     public SplineContainer container;
+    public List<Branch> branches;
 
     [SerializeField] private float baseRadius = 0.3f;
     [SerializeField] private float tipRadius = 0.010f;
@@ -54,6 +55,7 @@ public class PlantExtruder : MonoBehaviour
         for (int splineIndex = 0; splineIndex < container.Splines.Count; splineIndex++)
         {
             Spline spline = container[splineIndex];
+            Branch branch = branches[splineIndex];
 
             List<Vector3> positions = new List<Vector3>();
             List<float> distances = new List<float>();
@@ -81,15 +83,22 @@ public class PlantExtruder : MonoBehaviour
 
             sampledBranchLengths.Add(branchLength);
 
-            totalLength += splineLength;
+            branch.localLength = splineLength;
+            Debug.Log(splineIndex);
+            Debug.Log(branch.splineIndex);
+            Debug.Log(branch.parentSplineIndex);
+            branch.totalLength = splineLength + (splineIndex != 0 ? branches[branch.parentSplineIndex].totalLength : 0f);
+
+            totalLength = Mathf.Max(branch.totalLength, totalLength);
         }
 
-        float accumulatedLength = 0f;
+        //float accumulatedLength = 0f;
 
         // Iterate over all splines in the container.
         for (int splineIndex = 0; splineIndex < container.Splines.Count; splineIndex++)
         {
             Spline spline = container[splineIndex];
+            Branch branch = branches[splineIndex];
 
             List<Vector3> positions = sampledPositions[splineIndex];
             List<float> distances = sampledDistances[splineIndex];
@@ -108,11 +117,13 @@ public class PlantExtruder : MonoBehaviour
                 Vector3 tangent = ((Vector3)spline.EvaluateTangent(t)).normalized;
 
                 // Calculate world distance (real distance from plants start)
-                float worldDistance = accumulatedLength + distances[j];
-                float worldT = totalLength > 0f ? worldDistance / totalLength : 0f;
+                //float totalBranchDistance = accumulatedLength + distances[j];
+                float totalBranchDistance = (splineIndex != 0 ? branches[branch.parentSplineIndex].totalLength : 0f) + distances[j];
+
+                float branchT = totalLength > 0f ? totalBranchDistance / totalLength : 0f;
 
                 // Calculate radius
-                float radius = Mathf.Lerp(baseRadius, tipRadius, worldT); // CHANGE THIS LATER TO ANIMATION CURVE
+                float radius = Mathf.Lerp(baseRadius, tipRadius, branchT); // CHANGE THIS LATER TO ANIMATION CURVE
 
                 // Calculate perpendicular vectors
                 Vector3 reference = Vector3.up;
@@ -133,7 +144,7 @@ public class PlantExtruder : MonoBehaviour
 
                     vertices.Add(position + offset);
 
-                    uvs.Add(new Vector2(i / (float)radialSegments, worldT));
+                    uvs.Add(new Vector2(i / (float)radialSegments, branchT));
                 }
 
                 // Connect this ring to the previous ring
@@ -162,9 +173,9 @@ public class PlantExtruder : MonoBehaviour
                 }
             }
 
-            accumulatedLength += distances[^1];
+            //accumulatedLength += distances[^1];
 
-            Debug.Log($"{splineIndex}: Total Length: {totalLength}, Accumulated Length: {accumulatedLength}");
+            //Debug.Log($"{splineIndex}: Total Length: {totalLength}, Accumulated Length: {accumulatedLength}");
         }
 
         mesh.SetVertices(vertices);

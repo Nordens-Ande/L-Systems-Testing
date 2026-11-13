@@ -7,6 +7,18 @@ using UnityEngine;
 using UnityEngine.Splines;
 using UnityEngine.UIElements;
 
+[Serializable]
+public class Branch
+{
+    public int splineIndex;
+
+    public int parentSplineIndex = -1;
+    public int parentKnotIndex = -1;
+
+    public float localLength = 0f;
+    public float totalLength = 0f;
+}
+
 public class PlantGenerator : MonoBehaviour
 {
     private string plant;
@@ -28,6 +40,7 @@ public class PlantGenerator : MonoBehaviour
 
     [SerializeField] Material plantMaterial;
 
+    private List<Branch> branches = new List<Branch>(); 
     private Stack<GrammarNode> stack = new Stack<GrammarNode>();
     private Stack<int> splineIndexStack = new Stack<int>();
 
@@ -102,11 +115,21 @@ public class PlantGenerator : MonoBehaviour
         //plantObject.GetComponent<SplineExtrude>().Container = container;
         //PlantExtruder extruder = plantObject.GetComponent<PlantExtruder>();
         plantObject.GetComponent<PlantExtruder>().container = container;
+        plantObject.GetComponent<PlantExtruder>().branches = branches;
 
 
         currentSpline = container.AddSpline();
         currentSplineIndex = container.Splines.Count - 1;
         currentSpline.Add(new BezierKnot(currentNode.position), TangentMode.AutoSmooth);
+
+        branches.Clear();
+
+        branches.Add(new Branch
+        {
+            splineIndex = 0,
+            parentSplineIndex = -1,
+            parentKnotIndex = -1,
+        });
     }
 
     private void CreateBranches()
@@ -181,6 +204,10 @@ public class PlantGenerator : MonoBehaviour
 
         splineIndexStack.Push(currentSplineIndex);
 
+        // Parent information, however, this is the same ad the prevIndices so we wont use the parent variables
+        //int parentSplineIndex = currentSplineIndex;
+        //int parentKnotIndex = container[parentSplineIndex].Count - 1;
+
         //int splineCount = currentSpline.Count;
         int prevSplineIndex = currentSplineIndex;
         int prevLastKnotIndex = container[prevSplineIndex].Count - 1;
@@ -192,6 +219,13 @@ public class PlantGenerator : MonoBehaviour
 
         currentSpline.Add(new BezierKnot(localPosition), TangentMode.AutoSmooth);
         container.LinkKnots(new SplineKnotIndex(prevSplineIndex, prevLastKnotIndex), new SplineKnotIndex(currentSplineIndex, 0));
+
+        branches.Add(new Branch
+        {
+            splineIndex = currentSplineIndex,
+            parentSplineIndex = prevSplineIndex,
+            parentKnotIndex = prevLastKnotIndex,
+        });
     }
 
     private void PopNode()
