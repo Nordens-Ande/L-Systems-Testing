@@ -8,23 +8,10 @@ using UnityEngine.Splines;
 using UnityEngine.UIElements;
 
 [Serializable]
-public class Branch
+public struct ProductionRule
 {
-    public int splineIndex;
-
-    public int parentSplineIndex = -1;
-    public int parentKnotIndex = -1;
-    public Branch parentBranch;
-
-    public List<int> childrenSplineIndices = new List<int>();
-    public List<Branch> childBranches = new List<Branch>();
-
-    public float localLength = 0f;
-    public float totalLength = 0f;
-
-    public float length = 0f;
-    public float distanceFromRoot = 0f;
-    public float maxTipDistance = 0f;
+    public char Predecessor;
+    public string Sucessor;
 }
 
 public class PlantGenerator : MonoBehaviour
@@ -34,17 +21,31 @@ public class PlantGenerator : MonoBehaviour
 
     [SerializeField] private int seed = -1;
 
+    [Space]
+
     [SerializeField] private string axiom;
+
+    [Space]
+
+    [SerializeField] private List<ProductionRule> productionRules = new List<ProductionRule>();
+
+    [Space]
 
     [SerializeField] private int iterations;
 
+    [Space]
+
     [SerializeField] private float stepLength;
     [SerializeField] private float stepAngle;
+
+    [Space]
 
     [SerializeField] private float baseRadius = 0.3f;
     [SerializeField] private int radialSegments = 8;
     [SerializeField] private int splineResolution = 20;
     [SerializeField] private AnimationCurve radiusCurve = AnimationCurve.EaseInOut(0, 1, 1, 0);
+
+    [Space]
 
     [SerializeField] Material plantMaterial;
 
@@ -101,6 +102,12 @@ public class PlantGenerator : MonoBehaviour
 
     private void ExpandPlantString()
     {
+        Dictionary<char, string> rules = new Dictionary<char, string>();
+        foreach (ProductionRule rule in productionRules)
+        {
+            rules.Add(rule.Predecessor, rule.Sucessor);
+        }
+
         for (int i = 0; i < iterations; i++)
         {
             // or newPlant since it will be an addition of the old plant and the production
@@ -108,14 +115,20 @@ public class PlantGenerator : MonoBehaviour
 
             foreach (char predecessor in plant.ToString())
             {
+                string sucessor;
+
                 // creates the production by evaluating the predecessor and then adding the proper succesor
-                production.Append(predecessor switch
+                if (!rules.TryGetValue(predecessor, out sucessor))
                 {
-                    'F' => "FF",
-                    //'B' => "[lFB][rFB]",
-                    'B' => "[lFB][rFB]",
-                    _ => predecessor
-                });
+                    sucessor = predecessor switch
+                    {
+                        'F' => "FF",
+                        'B' => "[lFB][rFB]",
+                        _ => predecessor.ToString()
+                    };
+                }
+
+                production.Append(sucessor);
             }
 
             plant = production.ToString();
@@ -158,14 +171,15 @@ public class PlantGenerator : MonoBehaviour
 
     private void CreateBranches()
     {
-        Vector3 initialPosition;
         foreach (char c in plant)
         {
             Action productionRule = c switch
             {
                 'F' => MoveForward,
-                'r' => RotateRight,
-                'l' => RotateLeft,
+                'r' or '+' => RotateRight,
+                'l' or '-' => RotateLeft,
+                'u' => RotateUp,
+                'p' => RotateDown,
                 '[' => PushNode,
                 ']' => PopNode,
                 _ => () => { }
@@ -174,48 +188,6 @@ public class PlantGenerator : MonoBehaviour
             productionRule();
         }
     }
-
-    private void GenerateMesh()
-    {
-        Mesh mesh = new Mesh();
-        mesh.name = "Plant Mesh";
-
-        List<Vector3> vertices = new();
-        List<int> triangles = new();
-        List<Vector2> uvs = new();
-
-        // Iterate over all splines in the container.
-        for (int splineIndex = 0; splineIndex < container.Splines.Count; splineIndex++)
-        {
-            Spline spline = container[splineIndex];
-
-            // Sample spline and generate rings.
-            // Connect adjacent rings with triangles.
-
-            float t = splineIndex / container.Splines.Count;
-
-            //float3 tangentFloat3 = spline.EvaluateTangent(t);
-            Vector3 tangent = spline.EvaluateTangent(t);
-
-            Vector3 reference = Vector3.up;
-
-            if (Mathf.Abs(Vector3.Dot(tangent, reference)) > 0.99f)
-                reference = Vector3.right;
-
-            Vector3 normal = Vector3.Cross(tangent, reference).normalized;
-            Vector3 binormal = Vector3.Cross(tangent, normal).normalized;
-
-        }
-
-        mesh.SetVertices(vertices);
-        mesh.SetTriangles(triangles, 0);
-        mesh.SetUVs(0, uvs);
-        mesh.RecalculateNormals();
-        mesh.RecalculateBounds();
-
-        plantObject.GetComponent<MeshFilter>().sharedMesh = mesh;
-    }
-
 
     private void PushNode()
     {
@@ -290,7 +262,7 @@ public class PlantGenerator : MonoBehaviour
         //branchList[^1].Add(newPosition);
 
         Vector3 localPosition = container.transform.InverseTransformPoint(newPosition);
-        currentSpline.Add(new BezierKnot(newPosition), TangentMode.AutoSmooth);
+        currentSpline.Add(new BezierKnot(localPosition), TangentMode.AutoSmooth);
 
         currentNode.position = newPosition;
 
@@ -305,6 +277,16 @@ public class PlantGenerator : MonoBehaviour
     private void RotateLeft()
     {
         currentNode.rotation *= Quaternion.Euler(0, 0, stepAngle);
+    }
+
+    private void RotateUp()
+    {
+        currentNode.rotation *= Quaternion.Euler(stepAngle, 0, 0);
+    }
+
+    private void RotateDown()
+    {
+        currentNode.rotation *= Quaternion.Euler(-stepAngle, 0, 0);
     }
 
     float GetRadius(float t)
