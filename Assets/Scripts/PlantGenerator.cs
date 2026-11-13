@@ -14,9 +14,17 @@ public class Branch
 
     public int parentSplineIndex = -1;
     public int parentKnotIndex = -1;
+    public Branch parentBranch;
+
+    public List<int> childrenSplineIndices = new List<int>();
+    public List<Branch> childBranches = new List<Branch>();
 
     public float localLength = 0f;
     public float totalLength = 0f;
+
+    public float length = 0f;
+    public float distanceFromRoot = 0f;
+    public float maxTipDistance = 0f;
 }
 
 public class PlantGenerator : MonoBehaviour
@@ -40,13 +48,17 @@ public class PlantGenerator : MonoBehaviour
 
     [SerializeField] Material plantMaterial;
 
-    private List<Branch> branches = new List<Branch>(); 
+    //private List<Branch> branches = new List<Branch>(); 
+    private Stack<Branch> branchStack = new Stack<Branch>(); 
     private Stack<GrammarNode> stack = new Stack<GrammarNode>();
     private Stack<int> splineIndexStack = new Stack<int>();
 
     private GrammarNode currentNode;
+    private Branch currentBranch;
     private Spline currentSpline;
     private int currentSplineIndex;
+
+    private List<Branch> branches = new List<Branch>();
 
     private List<List<Vector3>> branchList = new List<List<Vector3>>();
 
@@ -56,7 +68,18 @@ public class PlantGenerator : MonoBehaviour
 
     void Start()
     {   
-        currentNode = new GrammarNode { position = transform.position, rotation = transform.rotation };
+        currentNode = new GrammarNode 
+        { 
+            position = transform.position, 
+            rotation = transform.rotation 
+        };
+
+        currentBranch = new Branch() //root
+        {
+            splineIndex = 0
+        };
+        //branchStack.Push(currentBranch);
+        branches.Add(currentBranch);
 
         plant = axiom;
 
@@ -113,23 +136,24 @@ public class PlantGenerator : MonoBehaviour
         container.RemoveSplineAt(0);
 
         //plantObject.GetComponent<SplineExtrude>().Container = container;
-        //PlantExtruder extruder = plantObject.GetComponent<PlantExtruder>();
-        plantObject.GetComponent<PlantExtruder>().container = container;
-        plantObject.GetComponent<PlantExtruder>().branches = branches;
+        PlantExtruder extruder = plantObject.GetComponent<PlantExtruder>();
+        extruder.container = container;
+        extruder.root = currentBranch;
+        extruder.branches = branches;
 
 
         currentSpline = container.AddSpline();
         currentSplineIndex = container.Splines.Count - 1;
         currentSpline.Add(new BezierKnot(currentNode.position), TangentMode.AutoSmooth);
 
-        branches.Clear();
+        //branchStack.Clear();
 
-        branches.Add(new Branch
-        {
-            splineIndex = 0,
-            parentSplineIndex = -1,
-            parentKnotIndex = -1,
-        });
+        //branchesStack.Add(new Branch
+        //{
+        //    splineIndex = 0,
+        //    parentSplineIndex = -1,
+        //    parentKnotIndex = -1,
+        //});
     }
 
     private void CreateBranches()
@@ -195,13 +219,14 @@ public class PlantGenerator : MonoBehaviour
 
     private void PushNode()
     {
+        // GrammarNode
         stack.Push(new GrammarNode
         {
             position = currentNode.position,
             rotation = currentNode.rotation
         });
 
-
+        // Spline and indices
         splineIndexStack.Push(currentSplineIndex);
 
         // Parent information, however, this is the same ad the prevIndices so we wont use the parent variables
@@ -220,21 +245,41 @@ public class PlantGenerator : MonoBehaviour
         currentSpline.Add(new BezierKnot(localPosition), TangentMode.AutoSmooth);
         container.LinkKnots(new SplineKnotIndex(prevSplineIndex, prevLastKnotIndex), new SplineKnotIndex(currentSplineIndex, 0));
 
-        branches.Add(new Branch
+        // Branches
+        //branches.Add(new Branch
+        //{
+        //    splineIndex = currentSplineIndex,
+        //    parentSplineIndex = prevSplineIndex,
+        //    parentKnotIndex = prevLastKnotIndex,
+        //});
+
+        Branch child = new Branch()
         {
-            splineIndex = currentSplineIndex,
-            parentSplineIndex = prevSplineIndex,
-            parentKnotIndex = prevLastKnotIndex,
-        });
+            splineIndex         = currentSplineIndex,
+            parentSplineIndex   = prevSplineIndex,
+            parentBranch        = currentBranch,
+            distanceFromRoot    = currentBranch.distanceFromRoot + currentBranch.length
+        };
+
+        currentBranch.childrenSplineIndices.Add(child.splineIndex);
+        currentBranch.childBranches.Add(child);
+
+        branchStack.Push(currentBranch);
+        branches.Add(child);
+        currentBranch = child;
     }
 
     private void PopNode()
     {
+        // GrammerNode
         currentNode = stack.Pop();
 
-
+        // Spline and indices
         currentSplineIndex = splineIndexStack.Pop();
         currentSpline = container[currentSplineIndex];
+
+        // Branch
+        currentBranch = branchStack.Pop();
     }
 
     private void MoveForward()
@@ -248,6 +293,8 @@ public class PlantGenerator : MonoBehaviour
         currentSpline.Add(new BezierKnot(newPosition), TangentMode.AutoSmooth);
 
         currentNode.position = newPosition;
+
+        currentBranch.length += stepLength;
     }
 
     private void RotateRight()
