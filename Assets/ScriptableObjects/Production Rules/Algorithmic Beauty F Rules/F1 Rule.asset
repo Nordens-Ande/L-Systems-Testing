@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: F1 Rule
   m_EditorClassIdentifier: Assembly-CSharp::DeterministicRule
   Predecessor: 88
-  Successor: F[+X][-X]FX
+  Successor: F-[[X]+X]+F[+FX]-X

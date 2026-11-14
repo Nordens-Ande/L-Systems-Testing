@@ -27,6 +27,7 @@ public class PlantGenerator : MonoBehaviour
 
     [Space]
 
+    [SerializeField] private Grammar grammarPreset;
     [SerializeField] private List<ProductionRule> productionRules = new List<ProductionRule>();
 
     [Space]
@@ -82,7 +83,7 @@ public class PlantGenerator : MonoBehaviour
         //branchStack.Push(currentBranch);
         branches.Add(currentBranch);
 
-        plant = axiom;
+        plant = grammarPreset != null ? grammarPreset.Axiom : axiom;
 
         ExpandPlantString();
 
@@ -102,11 +103,20 @@ public class PlantGenerator : MonoBehaviour
 
     private void ExpandPlantString()
     {
-        Dictionary<char, string> rules = new Dictionary<char, string>();
+        //Dictionary<char, string> rules = new Dictionary<char, string>();
+        //foreach (ProductionRule rule in productionRules)
+        //{
+        //    //rules.Add(rule.Predecessor, rule.Sucessor);
+        //}
+        Dictionary<char, Func<string>> rules = new Dictionary<char, Func<string>>();
+        List<ProductionRule> productionRules = grammarPreset != null ? grammarPreset.Rules : this.productionRules;
+
         foreach (ProductionRule rule in productionRules)
         {
-            //rules.Add(rule.Predecessor, rule.Sucessor);
+            Debug.Log($"{rule.Predecessor} -> {rule.Produce()}");
+            rules.Add(rule.Predecessor, rule.Produce);
         }
+
 
         for (int i = 0; i < iterations; i++)
         {
@@ -115,18 +125,23 @@ public class PlantGenerator : MonoBehaviour
 
             foreach (char predecessor in plant.ToString())
             {
-                string sucessor;
+                string sucessor = predecessor.ToString();
 
                 // creates the production by evaluating the predecessor and then adding the proper succesor
-                if (!rules.TryGetValue(predecessor, out sucessor))
+                if (rules.TryGetValue(predecessor, out Func<string> rule))
                 {
-                    sucessor = predecessor switch
-                    {
-                        'F' => "FF",
-                        'B' => "[lFB][rFB]",
-                        _ => predecessor.ToString()
-                    };
+                    sucessor = rule();
+
                 }
+                //else
+                //{
+                //    sucessor = predecessor switch
+                //    {
+                //        'F' => "FF",
+                //        'B' => "[lFB][rFB]",
+                //        _ => predecessor.ToString()
+                //    };
+                //}
 
                 production.Append(sucessor);
             }
@@ -218,13 +233,6 @@ public class PlantGenerator : MonoBehaviour
         container.LinkKnots(new SplineKnotIndex(prevSplineIndex, prevLastKnotIndex), new SplineKnotIndex(currentSplineIndex, 0));
 
         // Branches
-        //branches.Add(new Branch
-        //{
-        //    splineIndex = currentSplineIndex,
-        //    parentSplineIndex = prevSplineIndex,
-        //    parentKnotIndex = prevLastKnotIndex,
-        //});
-
         Branch child = new Branch()
         {
             splineIndex         = currentSplineIndex,

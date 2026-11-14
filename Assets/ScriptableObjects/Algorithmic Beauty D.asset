@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42ea8fe5477a49149a778d0f1694ccc6, type: 3}
   m_Name: Algorithmic Beauty D
   m_EditorClassIdentifier: Assembly-CSharp::Grammar
-  Axiom: 
+  Axiom: X
   Rules:
-  - {fileID: 0}
+  - {fileID: 11400000, guid: a5ac4c13fbd072540b8a4fce3d5aedda, type: 2}
+  - {fileID: 11400000, guid: 801b249de398559459ee190e8a9f6251, type: 2}
