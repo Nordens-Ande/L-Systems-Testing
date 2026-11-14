@@ -10,15 +10,15 @@ public class PlantExtruder : MonoBehaviour
     public Branch root;
     public List<Branch> branches;
 
-    [SerializeField] private float baseRadius = 0.3f;
-    [SerializeField] private float tipRadius = 0.010f;
+    public float baseRadius = 0.3f;
+    public float tipRadius = 0.010f;
 
 
-    [SerializeField] private int radialSegments = 8;
+    public int radialSegments = 8;
 
-    [SerializeField] private int splineResolution = 20;
+    public int splineResolution = 20;
 
-    [SerializeField] private AnimationCurve radiusCurve = AnimationCurve.Linear(0, 1, 1, 0);
+    public AnimationCurve radiusCurve = AnimationCurve.Linear(0, 1, 1, 0);
         
     void Start()
     {

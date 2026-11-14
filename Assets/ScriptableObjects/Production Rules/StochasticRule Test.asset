@@ -15,4 +15,8 @@ MonoBehaviour:
   Predecessor: 0
   stochasticSuccesors:
   - Sucessor: 
-    Odds: 1
+    Odds: 0.2876699
+  - Sucessor: 
+    Odds: 0.444
+  - Sucessor: 
+    Odds: 0.2683301

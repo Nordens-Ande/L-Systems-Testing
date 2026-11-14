@@ -20,6 +20,7 @@ public class PlantGenerator : MonoBehaviour
     private GameObject plantObject;
 
     [SerializeField] private int seed = -1;
+    [SerializeField] private bool drawGizmo = false;
 
     [Space]
 
@@ -32,7 +33,7 @@ public class PlantGenerator : MonoBehaviour
 
     [Space]
 
-    [SerializeField] private int iterations;
+    [SerializeField, Range(1, 10)] private int iterations;
 
     [Space]
 
@@ -42,6 +43,7 @@ public class PlantGenerator : MonoBehaviour
     [Space]
 
     [SerializeField] private float baseRadius = 0.3f;
+    [SerializeField] private float tipRadius = 0.03f;
     [SerializeField] private int radialSegments = 8;
     [SerializeField] private int splineResolution = 20;
     [SerializeField] private AnimationCurve radiusCurve = AnimationCurve.EaseInOut(0, 1, 1, 0);
@@ -67,6 +69,16 @@ public class PlantGenerator : MonoBehaviour
 
     private SplineContainer container;
 
+    private void Awake()
+    {
+        if (seed == -1)
+        {
+            //seed = (int)System.DateTime.Now.Ticks;
+            seed = UnityEngine.Random.Range(short.MinValue, short.MaxValue);
+        }
+
+        UnityEngine.Random.InitState(seed);
+    }
 
     void Start()
     {   
@@ -91,6 +103,18 @@ public class PlantGenerator : MonoBehaviour
 
         CreateBranches();
 
+        //for (int i = 0; i < container.Splines.Count; i++)
+        //{
+        //    Spline spline = container[i];
+
+        //    if (spline.Count < 2)
+        //    {
+        //        Debug.LogWarning(
+        //            $"Spline {i} has only {spline.Count} knot(s)!"
+        //        );
+        //    }
+        //}
+
         plantObject.GetComponent<PlantExtruder>().GenerateMesh();
 
         //GenerateMesh();
@@ -111,6 +135,7 @@ public class PlantGenerator : MonoBehaviour
         Dictionary<char, Func<string>> rules = new Dictionary<char, Func<string>>();
         List<ProductionRule> productionRules = grammarPreset != null ? grammarPreset.Rules : this.productionRules;
 
+        Debug.Log(grammarPreset.Rules.Count);
         foreach (ProductionRule rule in productionRules)
         {
             Debug.Log($"{rule.Predecessor} -> {rule.Produce()}");
@@ -169,10 +194,20 @@ public class PlantGenerator : MonoBehaviour
         extruder.root = currentBranch;
         extruder.branches = branches;
 
+        extruder.baseRadius = baseRadius;
+        extruder.tipRadius = tipRadius;
+
+        extruder.splineResolution = splineResolution;
+        extruder.radialSegments = radialSegments;
+        
+        extruder.radiusCurve = radiusCurve;
+
 
         currentSpline = container.AddSpline();
         currentSplineIndex = container.Splines.Count - 1;
-        currentSpline.Add(new BezierKnot(currentNode.position), TangentMode.AutoSmooth);
+
+        Vector3 localPosition = container.transform.InverseTransformPoint(currentNode.position);
+        currentSpline.Add(new BezierKnot(localPosition), TangentMode.AutoSmooth);
 
         //branchStack.Clear();
 
@@ -194,7 +229,7 @@ public class PlantGenerator : MonoBehaviour
                 'r' or '+' => RotateRight,
                 'l' or '-' => RotateLeft,
                 'u' => RotateUp,
-                'p' => RotateDown,
+                'd' => RotateDown,
                 '[' => PushNode,
                 ']' => PopNode,
                 _ => () => { }
@@ -305,6 +340,9 @@ public class PlantGenerator : MonoBehaviour
 
     private void OnDrawGizmos()
     {
+        if (!drawGizmo)
+            return;
+
         foreach (List<Vector3> branch in branchList)
         {
             Gizmos.DrawLine(branch[0], branch[1]);
