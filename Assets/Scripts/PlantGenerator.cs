@@ -8,11 +8,11 @@ using UnityEngine.Splines;
 using UnityEngine.UIElements;
 
 [Serializable]
-public struct ProductionRule
-{
-    public char Predecessor;
-    public string Sucessor;
-}
+//public struct ProductionRule
+//{
+//    public char Predecessor;
+//    public string Sucessor;
+//}
 
 public class PlantGenerator : MonoBehaviour
 {
@@ -105,7 +105,7 @@ public class PlantGenerator : MonoBehaviour
         Dictionary<char, string> rules = new Dictionary<char, string>();
         foreach (ProductionRule rule in productionRules)
         {
-            rules.Add(rule.Predecessor, rule.Sucessor);
+            //rules.Add(rule.Predecessor, rule.Sucessor);
         }
 
         for (int i = 0; i < iterations; i++)
